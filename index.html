@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Galaxia Esférica de Amor</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #080300 !important;
+      background: radial-gradient(circle at center, #3d1a04 0%, #1a0c02 70%, #080300 100%) !important;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+  </style>
+
+  <!-- Biblioteca Three.js y OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; 
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 3;
+    controls.maxDistance = 60;
+
+    const mainGroup = new THREE.Group();
+    scene.add(mainGroup);
+
+    // RADIO MÁXIMO DE LA ESFERA
+    const SPHERE_RADIUS = 7.5;
+
+    // Función 1: Obtener un punto EXACTAMENTE en la superficie de la esfera
+    function getPointOnSphere(radius, index, total) {
+      const phi = Math.acos(-1 + (2 * index) / total);
+      const theta = Math.sqrt(total * Math.PI) * phi;
+
+      return {
+        x: radius * Math.cos(theta) * Math.sin(phi),
+        y: radius * Math.sin(theta) * Math.sin(phi),
+        z: radius * Math.cos(phi)
+      };
+    }
+
+    // Función 2: Obtener un punto DENTRO del volumen de la esfera
+    function getRandomPointInSphere(radius) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = Math.cbrt(Math.random()) * radius;
+
+      const sinPhi = Math.sin(phi);
+      return {
+        x: r * sinPhi * Math.cos(theta),
+        y: r * sinPhi * Math.sin(theta),
+        z: r * Math.cos(phi)
+      };
+    }
+
+    // Textura de brillo para partículas
+    function createGlowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      gradient.addColorStop(0.3, 'rgba(255, 230, 150, 0.8)');
+      gradient.addColorStop(0.7, 'rgba(255, 180, 50, 0.2)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(canvas);
+    }
+    const glowTexture = createGlowTexture();
+
+    // 1. NÚCLEO MÍSTICO ANIMADO
+    const coreGroup = new THREE.Group();
+    mainGroup.add(coreGroup);
+
+    // A) Núcleo de Energía Esférico
+    const coreGeo = new THREE.SphereGeometry(0.55, 32, 32);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa00,
+      wireframe: false,
+      transparent: true,
+      opacity: 0.85
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreGroup.add(coreMesh);
+
+    // B) Escudo de Malla Geométrica Exterior
+    const shieldGeo = new THREE.IcosahedronGeometry(0.85, 2);
+    const shieldMat = new THREE.MeshBasicMaterial({
+      color: 0xffe066,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
+    });
+    const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    coreGroup.add(shieldMesh);
+
+    // C) Anillo denso de energía orbitando el centro
+    const coreRingCount = 1200;
+    const coreRingGeo = new THREE.BufferGeometry();
+    const coreRingPos = new Float32Array(coreRingCount * 3);
+
+    for (let i = 0; i < coreRingCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 0.6 + Math.random() * 0.4;
+      coreRingPos[i * 3] = Math.cos(angle) * r;
+      coreRingPos[i * 3 + 1] = (Math.random() - 0.5) * 0.15;
+      coreRingPos[i * 3 + 2] = Math.sin(angle) * r;
+    }
+
+    coreRingGeo.setAttribute('position', new THREE.BufferAttribute(coreRingPos, 3));
+    const coreRingMat = new THREE.PointsMaterial({
+      size: 0.05,
+      color: 0xffcc00,
+      map: glowTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const coreRingParticles = new THREE.Points(coreRingGeo, coreRingMat);
+    coreGroup.add(coreRingParticles);
+
+    // 2. GALAXIA ESPIRAL ESPARCIDA Y ABIERTA
+    const countGalaxy = 28000;
+    const galaxyGeometry = new THREE.BufferGeometry();
+    const galaxyPositions = new Float32Array(countGalaxy * 3);
+    const galaxyColors = new Float32Array(countGalaxy * 3);
+
+    const arms = 4; 
+    const armTightness = 0.35; 
+
+    for (let i = 0; i < countGalaxy; i++) {
+      const r = Math.random() * (SPHERE_RADIUS - 0.4) + 0.4; 
+      const armIndex = i % arms;
+      
+      const armTheta = (armIndex * (Math.PI * 2 / arms));
+      const baseTheta = armTightness * r;
+      
+      const scatterTheta = (Math.random() - 0.5) * 1.2;
+      const theta = armTheta + baseTheta + scatterTheta;
+
+      const spreadFactor = 1.0 + (r / SPHERE_RADIUS) * 0.8;
+      const x = (Math.cos(theta) * r) + (Math.random() - 0.5) * (r / 2.5) * spreadFactor;
+      const z = (Math.sin(theta) * r) + (Math.random() - 0.5) * (r / 2.5) * spreadFactor;
+      
+      const maxY = Math.sqrt(Math.max(0, SPHERE_RADIUS * SPHERE_RADIUS - (x*x + z*z))) * 0.15;
+      const y = (Math.random() - 0.5) * maxY; 
+
+      galaxyPositions[i * 3] = x;
+      galaxyPositions[i * 3 + 1] = y;
+      galaxyPositions[i * 3 + 2] = z;
+
+      let color = new THREE.Color();
+      const randColor = Math.random();
+
+      if (randColor < 0.5) {
+        color.setHSL(0.14 + Math.random() * 0.04, 1.0, 0.6); 
+      } else if (randColor < 0.85) {
+        color.setHSL(0.08 + Math.random() * 0.05, 1.0, 0.55); 
+      } else {
+        color.setHSL(0.16, 1.0, 0.85); 
+      }
+
+      galaxyColors[i * 3] = color.r;
+      galaxyColors[i * 3 + 1] = color.g;
+      galaxyColors[i * 3 + 2] = color.b;
+    }
+
+    galaxyGeometry.setAttribute('position', new THREE.BufferAttribute(galaxyPositions, 3));
+    galaxyGeometry.setAttribute('color', new THREE.BufferAttribute(galaxyColors, 3));
+
+    const galaxyDisk = new THREE.Points(galaxyGeometry, new THREE.PointsMaterial({
+      size: 0.035, 
+      vertexColors: true,
+      transparent: true,
+      blending: THREE.AdditiveBlending, 
+      depthWrite: false,
+      opacity: 0.85
+    }));
+    mainGroup.add(galaxyDisk);
+
+    // 3. CORAZÓN POSICIONADO JUSTO ENCIMA DE LA ESFERA CENTRAL
+    const countHeart = 3000;
+    const heartGeometry = new THREE.BufferGeometry();
+    const heartPositions = new Float32Array(countHeart * 3);
+    const heartColors = new Float32Array(countHeart * 3);
+
+    const scale = 0.06;
+    // Elevación ajustada para que la punta inferior (-17 * scale = -1.02) descanse sobre la parte superior del núcleo (~0.6 - 0.85)
+    const heartYOffset = 1.9;
+
+    for (let i = 0; i < countHeart; i++) {
+      const t = Math.random() * Math.PI * 2;
+      const zOffset = (Math.random() - 0.5) * 0.2;
+      
+      let x = 16 * Math.pow(Math.sin(t), 3);
+      let y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+
+      heartPositions[i * 3] = x * scale;
+      heartPositions[i * 3 + 1] = (y * scale) + heartYOffset; 
+      heartPositions[i * 3 + 2] = zOffset;
+
+      const color = new THREE.Color();
+      color.setHSL(0.12 + Math.random() * 0.04, 1.0, 0.65 + Math.random() * 0.2);
+
+      heartColors[i * 3] = color.r; 
+      heartColors[i * 3 + 1] = color.g; 
+      heartColors[i * 3 + 2] = color.b;
+    }
+
+    heartGeometry.setAttribute('position', new THREE.BufferAttribute(heartPositions, 3));
+    heartGeometry.setAttribute('color', new THREE.BufferAttribute(heartColors, 3));
+
+    const heartParticles = new THREE.Points(heartGeometry, new THREE.PointsMaterial({
+      size: 0.1,
+      map: glowTexture,
+      vertexColors: true,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.9
+    }));
+    mainGroup.add(heartParticles);
+
+    // MENSAJE PRINCIPAL CENTRADO
+    function createCenteredTextMessage(message) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 1024;
+      canvas.height = 256;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = 'Bold 72px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 30;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(2.2, 0.55, 1);
+      return sprite;
+    }
+
+    const centerTextMesh = createCenteredTextMessage("Te amo Kiara ❤️");
+    centerTextMesh.position.set(0, 1.9, 0.1); 
+    mainGroup.add(centerTextMesh);
+
+    // 4. GENERADOR DE PALABRAS Y FRASES
+    function createTransparentTextSprite(message) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 512;
+      canvas.height = 128;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = 'Bold 30px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 18;
+      ctx.textAlign = 'center';
+      ctx.fillText(message, 256, 70);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(2.2, 0.55, 1);
+      return sprite;
+    }
+
+    const basePhrases = [
+      "Te amo Kiara 💖", "Mi Amor Kiara 👩‍❤️‍👨", "Eres mi todo 🌟", "Me encantas 🥰",
+      "Siempre juntos 🤝✨", "Eres preciosa 👑💛", "Amor de mi vida 💘", "Mi persona favorita 🧸😍",
+      "Mi reina 👸✨", "Mi sol ☀️🌻", "Juntos por siempre ♾️❤️", "Eres mi mundo 🌍💫",
+      "Mi complemento 🧩💕", "Luz de mis ojos 🤩✨", "Universo de amor 🌌💖", "Mi tesoro 💎😊",
+      "Dulzura mía 🍯😋", "Mi felicidad 🥰🌈", "Mi razón de ser 💓✨", "Estrella fugaz 🌠💛",
+      "Mi refugio 🏡💖", "Dueña de mi corazón 🔑💗", "Mi vida entera 🤍✨", "Infinito amor ♾️🌹",
+      "Eres mi magia 🪄✨", "Mi mejor regalo 🎁😍", "Pensando en ti 💭💖", "Mi angelito 👼💛",
+      "Amor bonito 🌸💗", "Mi paz 🕊️🤍", "Mi destino 🧭❤️", "Carita hermosa 😊🌼",
+      "Te adoro 🌹💛", "Mi alegría 🌻✨", "Eternamente tuyo 💖👑", "Mi luz radiante ☀️💛",
+      "Flor de mi vida 🌹✨", "Amor verdadero 💕🌟", "Un latido tuyo 💓🌼", "Mi princesa 👸🌹",
+      "Mi bomboncito 🍬💖", "Mi cielito ☁️💛", "Sol de mi vida ☀️😍", "Mi regalo del cielo 🌌✨",
+      "Eres mi sueño 🌙⭐", "Mi pedacito de cielo 🌈💘", "Amor infinito ♾️💛", "Mi tesoro valioso 💎💞",
+      "Mi estrella guía 🧭⭐", "Te amaré siempre 💗✨", "Eres mi inspiración 🎨💖", "Mi motivo de sonreír 😁💛"
+    ];
+
+    const totalPhrasesList = [...basePhrases, ...basePhrases, ...basePhrases, ...basePhrases];
+
+    const surfaceCount = 280; 
+
+    // A) Frases en la SUPERFICIE
+    for (let i = 0; i < surfaceCount; i++) {
+      const phrase = totalPhrasesList[i % totalPhrasesList.length];
+      const sprite = createTransparentTextSprite(phrase);
+      const pos = getPointOnSphere(SPHERE_RADIUS, i, surfaceCount);
+      sprite.position.set(pos.x, pos.y, pos.z);
+      mainGroup.add(sprite);
+    }
+
+    // B) Frases EN EL INTERIOR
+    const innerCount = 370;
+    for (let i = 0; i < innerCount; i++) {
+      const phrase = totalPhrasesList[(surfaceCount + i) % totalPhrasesList.length];
+      const sprite = createTransparentTextSprite(phrase);
+      const pos = getRandomPointInSphere(SPHERE_RADIUS - 0.6);
+      sprite.position.set(pos.x, pos.y, pos.z);
+      mainGroup.add(sprite);
+    }
+
+    // 5. FLORES Y ELEMENTOS 3D EN EL INTERIOR
+    function create3DFlowerBouquet() {
+      const bouquetGroup = new THREE.Group();
+      const stemMat = new THREE.MeshBasicMaterial({ color: 0x2e7d32 });
+      const petalMat = new THREE.MeshBasicMaterial({ color: 0xffd500, side: THREE.DoubleSide });
+      const centerMat = new THREE.MeshBasicMaterial({ color: 0x5d4037 });
+
+      for (let i = 0; i < 5; i++) {
+        const flowerGroup = new THREE.Group();
+
+        const stemGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.6, 6);
+        const stem = new THREE.Mesh(stemGeo, stemMat);
+        stem.position.y = 0.3;
+        flowerGroup.add(stem);
+
+        const flowerHead = new THREE.Group();
+        flowerHead.position.y = 0.6;
+
+        const centerGeo = new THREE.SphereGeometry(0.05, 8, 8);
+        flowerHead.add(new THREE.Mesh(centerGeo, centerMat));
+
+        const petalGeo = new THREE.ConeGeometry(0.03, 0.15, 4);
+        petalGeo.rotateX(Math.PI / 2);
+
+        for (let p = 0; p < 8; p++) {
+          const petalAngle = (p / 8) * Math.PI * 2;
+          const petal = new THREE.Mesh(petalGeo, petalMat);
+          petal.position.set(Math.cos(petalAngle) * 0.06, Math.sin(petalAngle) * 0.06, 0);
+          petal.rotation.z = petalAngle + Math.PI / 2;
+          flowerHead.add(petal);
+        }
+
+        flowerGroup.add(flowerHead);
+        bouquetGroup.add(flowerGroup);
+      }
+
+      bouquetGroup.scale.set(0.5, 0.5, 0.5);
+      return bouquetGroup;
+    }
+
+    for (let b = 0; b < 50; b++) {
+      const bouquet = create3DFlowerBouquet();
+      const pos = getRandomPointInSphere(SPHERE_RADIUS - 1.0);
+      bouquet.position.set(pos.x, pos.y, pos.z);
+      bouquet.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+      mainGroup.add(bouquet);
+    }
+
+    camera.position.z = 14.0; 
+
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const elapsedTime = clock.getElapsedTime();
+
+      // Animaciones del Núcleo Central
+      const pulseScale = 1 + Math.sin(elapsedTime * 3) * 0.12;
+      coreMesh.scale.set(pulseScale, pulseScale, pulseScale);
+      
+      shieldMesh.rotation.y -= 0.01;
+      shieldMesh.rotation.x += 0.005;
+      
+      coreRingParticles.rotation.y += 0.02;
+
+      // Rotación general de la escena
+      mainGroup.rotation.y += 0.0025;
+      mainGroup.rotation.x += 0.0005;
+      
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
