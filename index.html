@@ -24,12 +24,14 @@
       z-index: 1;
       cursor: grab;
       opacity: 0;
-      transition: opacity 2.5s ease-in-out;
-      pointer-events: none; /* Deshabilitado hasta que se abra la carta */
+      transform: scale(0.7);
+      transition: opacity 2s cubic-bezier(0.1, 1, 0.1, 1), transform 2s cubic-bezier(0.1, 1, 0.1, 1);
+      pointer-events: none;
     }
 
     #canvas-container.loaded {
       opacity: 1;
+      transform: scale(1);
       pointer-events: auto;
     }
 
@@ -48,8 +50,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background: rgba(8, 3, 0, 0.85);
-      backdrop-filter: blur(8px);
+      background: rgba(8, 3, 0, 0.9);
+      backdrop-filter: blur(10px);
       transition: opacity 1.2s ease, visibility 1.2s ease;
     }
 
@@ -200,13 +202,11 @@
         bouquetEl.innerHTML = '💐';
         document.body.appendChild(bouquetEl);
 
-        // Posición inicial en el centro de la pantalla
         const centerX = window.innerWidth / 2 - 25;
         const centerY = window.innerHeight / 2;
         bouquetEl.style.left = `${centerX}px`;
         bouquetEl.style.top = `${centerY}px`;
 
-        // Forzar reflow y aplicar animación de salto en direcciones distintas
         setTimeout(() => {
           bouquetEl.style.opacity = '1';
           const randomX = (i - 1) * 220 + (Math.random() * 60 - 30);
@@ -216,7 +216,6 @@
           bouquetEl.style.opacity = '0';
         }, 50);
 
-        // Limpiar del DOM después de la animación
         setTimeout(() => {
           bouquetEl.remove();
         }, 1300);
@@ -580,7 +579,6 @@
     let shockwaveScale = 1;
 
     window.addEventListener('click', (e) => {
-      // Evitar que capture el click si está abierta la carta de intro
       if (!introOverlay.classList.contains('hidden')) return;
 
       mouseVector.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -595,7 +593,8 @@
       }
     });
 
-    camera.position.z = 14.0; 
+    // CÁMARA MÁS CERCANA (Reducida de 14.0 a 10.5 para ver todo mucho más cerca)
+    camera.position.z = 10.5; 
     let clock = new THREE.Clock();
 
     function animate() {
